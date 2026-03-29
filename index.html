@@ -1,0 +1,155 @@
+
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+<meta charset="UTF-8">
+<title>Galéria odkazov</title>
+<style>
+    body {
+        background-color: #FEF3D7;
+        color: #4A2C21;
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+    }
+
+    header {
+        width: 100%;
+        text-align: center;
+        background-color: #FEF3D7;
+        border-bottom: 4px solid #DCA32F;
+    }
+
+    header img {
+        max-width: 100%;
+        height: auto;
+    }
+
+    .filter-container {
+        display: flex;
+        gap: 20px;
+        justify-content: center;
+        padding: 15px;
+        border-bottom: 3px solid #DCA32F;
+        background-color: #FEF3D7;
+    }
+
+    select, button {
+        padding: 10px;
+        font-size: 16px;
+        border: 2px solid #DCA32F;
+        background-color: white;
+        color: #4A2C21;
+        border-radius: 6px;
+    }
+
+    button {
+        cursor: pointer;
+        font-weight: bold;
+    }
+
+    .gallery {
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        max-width: 900px;
+        margin: auto;
+    }
+
+    .item {
+        padding: 12px;
+        border: 2px solid #DCA32F;
+        background-color: white;
+        border-radius: 8px;
+    }
+
+    .item a {
+        color: #4A2C21;
+        font-weight: bold;
+        text-decoration: none;
+        font-size: 18px;
+    }
+</style>
+</head>
+
+<body>
+
+<header>
+    <img src="banner1.png" alt="Banner">
+</header>
+
+<div class="filter-container">
+    <label>
+        Ročník:
+        <select id="rocnik">
+            <option>Všetky</option>
+            <option>Prvý</option>
+            <option>Druhý</option>
+            <option>Tretí</option>
+            <option>Štvrtý</option>
+        </select>
+    </label>
+
+    <label>
+        Predmet:
+        <select id="predmet">
+            <option>Všetky</option>
+            <option>Matematika</option>
+            <option>Slovenský jazyk</option>
+            <option>Človek a príroda</option>
+            <option>Človek a spoločnosť</option>
+        </select>
+    </label>
+
+    <button onclick="filtruj()">Filtruj</button>
+</div>
+
+<div class="gallery" id="gallery">
+    <!-- Načítané položky sa zobrazia sem -->
+</div>
+
+<script>
+let data = [];
+
+// Načítanie JSON z obsah.json
+fetch('obsah.json')
+    .then(response => response.json())
+    .then(json => { data = json; zobraz(json); });
+
+// Funkcia na zobrazenie položiek
+function zobraz(polozky) {
+    const gallery = document.getElementById('gallery');
+    gallery.innerHTML = "";
+
+    if (polozky.length === 0) {
+        gallery.innerHTML = "<p>Žiadne výsledky.</p>";
+        return;
+    }
+
+    polozky.forEach(item => {
+        const div = document.createElement('div');
+        div.className = "item";
+        div.innerHTML = `<a>
+                         <br><small>${item.rocnik} — ${item.predmet}</small>`;
+        gallery.appendChild(div);
+    });
+}
+
+// Filtrovanie
+function filtruj() {
+    const rocnik = document.getElementById('rocnik').value;
+    const predmet = document.getElementById('predmet').value;
+
+    const vysledky = data.filter(item =>
+        (rocnik === "Všetky" || item.rocnik === rocnik) &&
+        (predmet === "Všetky" || item.predmet === predmet)
+    );
+
+    zobraz(vysledky);
+}
+</script>
+
+</body>
+</html>
+``
