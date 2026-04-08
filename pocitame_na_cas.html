@@ -1,0 +1,543 @@
+<!doctype html>
+<html lang="sk" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Matematické Príklady do 100</title>
+  <script src="/_sdk/element_sdk.js"></script>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&amp;display=swap" rel="stylesheet">
+  <style>
+    * { font-family: 'Nunito', sans-serif; }
+
+    body, html { height: 100%; margin: 0; padding: 0; }
+
+    .app-wrapper {
+      width: 100%;
+      height: 100%;
+      min-height: 100%;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: auto;
+    }
+
+    .card {
+      background: rgba(255,255,255,0.07);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 2rem;
+      padding: 2.5rem 3rem;
+      min-width: 340px;
+      max-width: 480px;
+      width: 90%;
+      text-align: center;
+      box-shadow: 0 25px 60px rgba(0,0,0,0.4);
+    }
+
+    .question-text {
+      font-size: 3.5rem;
+      font-weight: 900;
+      color: #ffffff;
+      letter-spacing: -1px;
+      line-height: 1.1;
+    }
+
+    .timer-bar-bg {
+      background: rgba(255,255,255,0.1);
+      border-radius: 99px;
+      height: 10px;
+      overflow: hidden;
+      margin: 1.2rem 0 0.5rem 0;
+    }
+
+    .timer-bar {
+      height: 100%;
+      border-radius: 99px;
+      background: linear-gradient(90deg, #43e97b, #38f9d7);
+      transition: width 0.1s linear, background 0.5s;
+    }
+
+    .timer-bar.warning {
+      background: linear-gradient(90deg, #f7971e, #ffd200);
+    }
+
+    .timer-bar.danger {
+      background: linear-gradient(90deg, #ff416c, #ff4b2b);
+    }
+
+    .numpad {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.7rem;
+      margin-top: 1.5rem;
+    }
+
+    .num-btn {
+      background: rgba(255,255,255,0.1);
+      border: 2px solid rgba(255,255,255,0.18);
+      color: #fff;
+      font-size: 1.6rem;
+      font-weight: 800;
+      border-radius: 1rem;
+      padding: 0.85rem 0;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s, border-color 0.15s;
+      user-select: none;
+    }
+
+    .num-btn:hover {
+      background: rgba(255,255,255,0.22);
+      border-color: rgba(255,255,255,0.4);
+      transform: scale(1.06);
+    }
+
+    .num-btn:active {
+      transform: scale(0.96);
+      background: rgba(255,255,255,0.3);
+    }
+
+    .num-btn.zero {
+      grid-column: 1 / -1;
+    }
+
+    .emoji-overlay {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      pointer-events: none;
+    }
+
+    .emoji-box {
+      border-radius: 2rem;
+      padding: 2rem 3rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+      animation: popIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .emoji-box.correct {
+      background: linear-gradient(135deg, #11998e, #38ef7d);
+    }
+
+    .emoji-box.incorrect {
+      background: linear-gradient(135deg, #c0392b, #e74c3c);
+    }
+
+    .emoji-face {
+      font-size: 5rem;
+      line-height: 1;
+    }
+
+    .emoji-label {
+      font-size: 1.4rem;
+      font-weight: 800;
+      color: white;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.3);
+    }
+
+    @keyframes popIn {
+      0% { transform: scale(0.4); opacity: 0; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    .score-ring {
+      width: 130px;
+      height: 130px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.2rem;
+      font-weight: 900;
+      color: white;
+      margin: 0 auto 1.2rem auto;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+    }
+
+    .progress-dots {
+      display: flex;
+      gap: 0.35rem;
+      justify-content: center;
+      margin-bottom: 0.6rem;
+      flex-wrap: wrap;
+    }
+
+    .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.2);
+      transition: background 0.3s;
+    }
+
+    .dot.correct { background: #43e97b; }
+    .dot.incorrect { background: #ff4b2b; }
+    .dot.active { background: rgba(255,255,255,0.7); animation: pulse 0.7s infinite alternate; }
+
+    @keyframes pulse {
+      from { transform: scale(1); }
+      to { transform: scale(1.3); }
+    }
+
+    .repeat-btn {
+      background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+      color: #1a1a2e;
+      font-size: 1.1rem;
+      font-weight: 800;
+      border: none;
+      border-radius: 1rem;
+      padding: 0.9rem 2.5rem;
+      cursor: pointer;
+      margin-top: 1.5rem;
+      transition: transform 0.15s, box-shadow 0.15s;
+      box-shadow: 0 6px 20px rgba(67,233,123,0.35);
+    }
+
+    .repeat-btn:hover {
+      transform: scale(1.05);
+      box-shadow: 0 10px 30px rgba(67,233,123,0.5);
+    }
+
+    .answer-display {
+      font-size: 2.2rem;
+      font-weight: 900;
+      color: rgba(255,255,255,0.5);
+      min-height: 2.8rem;
+      letter-spacing: 3px;
+    }
+
+    .section-title {
+      color: rgba(255,255,255,0.55);
+      font-size: 0.85rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 0.4rem;
+    }
+  </style>
+  <style>body { box-sizing: border-box; }</style>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js" type="text/javascript"></script>
+  <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
+ </head>
+ <body class="h-full">
+  <div class="app-wrapper" id="appWrapper"><!-- START SCREEN -->
+   <div class="card" id="startScreen">
+    <div style="font-size:3rem; margin-bottom:0.5rem;">
+     🔢
+    </div>
+    <h1 id="appTitle" style="font-size:1.6rem; font-weight:900; color:#fff; margin-bottom:0.4rem;">Matematické Príklady</h1>
+    <p style="color:rgba(255,255,255,0.6); font-size:0.95rem; margin-bottom:1.8rem;">Obor do 100 · Výsledky 0–9 · 20 príkladov</p><button class="repeat-btn" onclick="startGame()" style="font-size:1.15rem; padding:1rem 3rem;">▶ Začať test</button>
+   </div><!-- GAME SCREEN -->
+   <div class="card" id="gameScreen" style="display:none;">
+    <div class="section-title" id="questionCounter">
+     Príklad 1 / 20
+    </div>
+    <div class="progress-dots" id="progressDots"></div>
+    <div class="question-text" id="questionText">
+     ? + ? = ?
+    </div>
+    <div class="timer-bar-bg">
+     <div class="timer-bar" id="timerBar" style="width:100%"></div>
+    </div>
+    <div style="color:rgba(255,255,255,0.4); font-size:0.78rem; margin-bottom:0.8rem;" id="timerLabel">
+     8.0 s
+    </div>
+    <div class="answer-display" id="answerDisplay">
+     _
+    </div>
+    <div class="numpad" id="numpad"><button class="num-btn" onclick="pressNum(1)">1</button> <button class="num-btn" onclick="pressNum(2)">2</button> <button class="num-btn" onclick="pressNum(3)">3</button> <button class="num-btn" onclick="pressNum(4)">4</button> <button class="num-btn" onclick="pressNum(5)">5</button> <button class="num-btn" onclick="pressNum(6)">6</button> <button class="num-btn" onclick="pressNum(7)">7</button> <button class="num-btn" onclick="pressNum(8)">8</button> <button class="num-btn" onclick="pressNum(9)">9</button> <button class="num-btn zero" onclick="pressNum(0)">0</button>
+    </div>
+   </div><!-- RESULTS SCREEN -->
+   <div class="card" id="resultsScreen" style="display:none;">
+    <div class="section-title">
+     Výsledok testu
+    </div>
+    <div class="score-ring" id="scoreRing"></div>
+    <div style="font-size:1.05rem; color:rgba(255,255,255,0.65); margin-bottom:0.5rem;" id="scoreDetail"></div>
+    <div style="font-size:1.5rem; font-weight:900; color:#fff; margin-bottom:1rem;" id="scoreEmoji"></div>
+    <div class="section-title" style="margin-bottom:0.5rem;">
+     Prehľad odpovedí
+    </div>
+    <div class="progress-dots" id="resultDots"></div><button class="repeat-btn" onclick="startGame()">🔄 Zopakovať test</button>
+   </div>
+  </div><!-- EMOJI OVERLAY -->
+  <div class="emoji-overlay" id="emojiOverlay" style="display:none;">
+   <div class="emoji-box" id="emojiBox">
+    <div class="emoji-face" id="emojiFace">
+     😊
+    </div>
+    <div class="emoji-label" id="emojiLabel">
+     Správne!
+    </div>
+   </div>
+  </div>
+  <script>
+  // ── State ──────────────────────────────────────────────────────────────────
+  const TOTAL = 20;
+  const TIME_LIMIT = 8000; // ms
+
+  let currentQuestion = 0;
+  let correctCount = 0;
+  let results = []; // 'correct' | 'incorrect' | 'timeout'
+  let timerInterval = null;
+  let startTime = null;
+  let waitingForNext = false;
+  let currentAnswer = null;
+
+  // ── Puzzle generator ───────────────────────────────────────────────────────
+  // Result must be integer 0–9, numbers in range 0–100
+  function generateQuestion() {
+    const result = Math.floor(Math.random() * 10); // 0–9
+    const ops = ['+', '-', '*'];
+    let op, a, b;
+
+    // Try to generate a valid question
+    let attempts = 0;
+    do {
+      op = ops[Math.floor(Math.random() * ops.length)];
+      if (op === '+') {
+        // a + b = result, a and b in 0–100, a+b<=100
+        a = Math.floor(Math.random() * (100 - result + 1));
+        b = result - a;
+        if (b < 0 || a + b > 100) { attempts++; continue; }
+      } else if (op === '-') {
+        // a - b = result, so a = result + b
+        b = Math.floor(Math.random() * (100 - result + 1));
+        a = result + b;
+        if (a > 100 || b < 0) { attempts++; continue; }
+      } else {
+        // multiplication: a * b = result
+        // find factor pairs
+        let factors = [];
+        for (let i = 1; i <= 10; i++) {
+          if (result % i === 0) {
+            let j = result / i;
+            if (j <= 10) factors.push([i, j]);
+          }
+        }
+        // result 0 is special
+        if (result === 0) {
+          a = Math.floor(Math.random() * 11);
+          b = 0;
+        } else if (factors.length === 0) {
+          attempts++; continue;
+        } else {
+          [a, b] = factors[Math.floor(Math.random() * factors.length)];
+        }
+      }
+      break;
+    } while (attempts < 100);
+
+    return { a, b, op, answer: result };
+  }
+
+  // ── Game flow ──────────────────────────────────────────────────────────────
+  function startGame() {
+    currentQuestion = 0;
+    correctCount = 0;
+    results = [];
+    waitingForNext = false;
+
+    document.getElementById('startScreen').style.display = 'none';
+    document.getElementById('resultsScreen').style.display = 'none';
+    document.getElementById('gameScreen').style.display = 'block';
+
+    buildProgressDots('progressDots', TOTAL);
+    showQuestion();
+  }
+
+  function buildProgressDots(containerId, count) {
+    const container = document.getElementById(containerId);
+    container.innerHTML = '';
+    for (let i = 0; i < count; i++) {
+      const d = document.createElement('div');
+      d.className = 'dot';
+      d.id = `dot_${containerId}_${i}`;
+      container.appendChild(d);
+    }
+  }
+
+  function showQuestion() {
+    if (currentQuestion >= TOTAL) {
+      showResults();
+      return;
+    }
+
+    const q = generateQuestion();
+    currentAnswer = q.answer;
+
+    document.getElementById('questionCounter').textContent = `Príklad ${currentQuestion + 1} / ${TOTAL}`;
+    document.getElementById('questionText').textContent = `${q.a} ${q.op} ${q.b} = ?`;
+    document.getElementById('answerDisplay').textContent = '_';
+
+    // Activate current dot
+    updateDot('progressDots', currentQuestion, 'active');
+
+    startTimer();
+  }
+
+  function startTimer() {
+    clearInterval(timerInterval);
+    startTime = Date.now();
+    waitingForNext = false;
+
+    timerInterval = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const remaining = Math.max(0, TIME_LIMIT - elapsed);
+      const fraction = remaining / TIME_LIMIT;
+
+      const bar = document.getElementById('timerBar');
+      bar.style.width = (fraction * 100) + '%';
+
+      // Color transitions
+      bar.className = 'timer-bar';
+      if (fraction < 0.25) bar.classList.add('danger');
+      else if (fraction < 0.5) bar.classList.add('warning');
+
+      document.getElementById('timerLabel').textContent = (remaining / 1000).toFixed(1) + ' s';
+
+      if (remaining <= 0) {
+        clearInterval(timerInterval);
+        handleTimeout();
+      }
+    }, 50);
+  }
+
+  function handleTimeout() {
+    if (waitingForNext) return;
+    waitingForNext = true;
+    recordResult('timeout');
+    showEmoji(false, true);
+    setTimeout(() => {
+      hideEmoji();
+      currentQuestion++;
+      showQuestion();
+    }, 1000);
+  }
+
+  function pressNum(n) {
+    if (waitingForNext) return;
+
+    clearInterval(timerInterval);
+    waitingForNext = true;
+
+    document.getElementById('answerDisplay').textContent = n;
+
+    const correct = (n === currentAnswer);
+    if (correct) correctCount++;
+    recordResult(correct ? 'correct' : 'incorrect');
+    updateDot('progressDots', currentQuestion, correct ? 'correct' : 'incorrect');
+
+    showEmoji(correct, false);
+    setTimeout(() => {
+      hideEmoji();
+      currentQuestion++;
+      showQuestion();
+    }, 1000);
+  }
+
+  function recordResult(type) {
+    results.push(type);
+    if (type !== 'active') {
+      updateDot('progressDots', currentQuestion, type === 'correct' ? 'correct' : 'incorrect');
+    }
+  }
+
+  function updateDot(containerId, index, type) {
+    const d = document.getElementById(`dot_${containerId}_${index}`);
+    if (!d) return;
+    d.className = 'dot ' + type;
+  }
+
+  // ── Emoji feedback ─────────────────────────────────────────────────────────
+  function showEmoji(correct, timeout) {
+    const overlay = document.getElementById('emojiOverlay');
+    const box = document.getElementById('emojiBox');
+    const face = document.getElementById('emojiFace');
+    const label = document.getElementById('emojiLabel');
+
+    box.className = 'emoji-box ' + (correct ? 'correct' : 'incorrect');
+    face.textContent = correct ? '😄' : (timeout ? '⏰' : '😢');
+    label.textContent = correct ? 'Správne!' : (timeout ? 'Čas vypršal!' : 'Nesprávne!');
+
+    overlay.style.display = 'flex';
+  }
+
+  function hideEmoji() {
+    document.getElementById('emojiOverlay').style.display = 'none';
+  }
+
+  // ── Results ────────────────────────────────────────────────────────────────
+  function showResults() {
+    clearInterval(timerInterval);
+    document.getElementById('gameScreen').style.display = 'none';
+    document.getElementById('resultsScreen').style.display = 'block';
+
+    const pct = Math.round((correctCount / TOTAL) * 100);
+
+    // Score ring
+    const ring = document.getElementById('scoreRing');
+    let ringColor;
+    if (pct >= 80) ringColor = 'linear-gradient(135deg,#11998e,#38ef7d)';
+    else if (pct >= 50) ringColor = 'linear-gradient(135deg,#f7971e,#ffd200)';
+    else ringColor = 'linear-gradient(135deg,#c0392b,#e74c3c)';
+    ring.style.background = ringColor;
+    ring.textContent = pct + '%';
+
+    document.getElementById('scoreDetail').textContent = `${correctCount} správnych z ${TOTAL} príkladov`;
+
+    let emoji = pct === 100 ? '🏆 Perfektné!' : pct >= 80 ? '⭐ Výborne!' : pct >= 60 ? '👍 Dobre!' : pct >= 40 ? '📚 Treba precvičiť' : '💪 Nevzdávaj sa!';
+    document.getElementById('scoreEmoji').textContent = emoji;
+
+    // Result dots
+    buildProgressDots('resultDots', TOTAL);
+    results.forEach((r, i) => {
+      updateDot('resultDots', i, r === 'correct' ? 'correct' : 'incorrect');
+    });
+  }
+
+  // ── Keyboard support ───────────────────────────────────────────────────────
+  document.addEventListener('keydown', (e) => {
+    const key = parseInt(e.key);
+    if (!isNaN(key) && key >= 0 && key <= 9) {
+      const gameScreen = document.getElementById('gameScreen');
+      if (gameScreen.style.display !== 'none') {
+        pressNum(key);
+      }
+    }
+  });
+
+  // ── Element SDK ────────────────────────────────────────────────────────────
+  const defaultConfig = {
+    app_title: 'Matematické Príklady'
+  };
+
+  window.elementSdk && window.elementSdk.init({
+    defaultConfig,
+    onConfigChange: async (config) => {
+      const title = config.app_title || defaultConfig.app_title;
+      document.getElementById('appTitle').textContent = title;
+    },
+    mapToCapabilities: (config) => ({
+      recolorables: [],
+      borderables: [],
+      fontEditable: undefined,
+      fontSizeable: undefined
+    }),
+    mapToEditPanelValues: (config) => new Map([
+      ['app_title', config.app_title || defaultConfig.app_title]
+    ])
+  });
+</script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9dd29b197500c62e',t:'MTc3MzY1MjAyOC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>

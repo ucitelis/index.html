@@ -1,0 +1,438 @@
+<!doctype html>
+<html lang="sk" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Matematická Hra</title>
+  <script src="/_sdk/element_sdk.js"></script>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@400;600;700;800&amp;display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Baloo 2', cursive;
+      background-color: #FEF3D7;
+      color: #4A2C21;
+    }
+    .border-gold { border-color: #DCA32F; }
+    .btn-answer {
+      background: #fff8e7;
+      border: 3px solid #DCA32F;
+      color: #4A2C21;
+      font-family: 'Baloo 2', cursive;
+      font-weight: 700;
+      font-size: 1.5rem;
+      border-radius: 1rem;
+      cursor: pointer;
+      transition: transform 0.12s, background 0.15s, box-shadow 0.15s;
+      box-shadow: 0 4px 0 #DCA32F;
+      padding: 0.6rem 2.5rem;
+      min-width: 110px;
+    }
+    .btn-answer:hover {
+      background: #FDE68A;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 0 #DCA32F;
+    }
+    .btn-answer:active {
+      transform: translateY(2px);
+      box-shadow: 0 2px 0 #DCA32F;
+    }
+    .btn-answer.correct {
+      background: #d1fae5;
+      border-color: #10b981;
+      box-shadow: 0 4px 0 #10b981;
+    }
+    .btn-answer.wrong {
+      background: #fee2e2;
+      border-color: #ef4444;
+      box-shadow: 0 4px 0 #ef4444;
+    }
+    .card {
+      background: #fffcf2;
+      border: 3px solid #DCA32F;
+      border-radius: 1.5rem;
+      box-shadow: 0 6px 24px rgba(220,163,47,0.15);
+    }
+    .timer-bar-inner {
+      background: linear-gradient(90deg, #DCA32F, #f59e0b);
+      height: 100%;
+      border-radius: 9999px;
+      transition: width 0.1s linear;
+    }
+    .timer-bar-outer {
+      background: #f3e0b0;
+      border-radius: 9999px;
+      height: 12px;
+      border: 2px solid #DCA32F;
+      overflow: hidden;
+      width: 100%;
+    }
+    .emoji-overlay {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 50;
+      background: rgba(254,243,215,0.7);
+      font-size: 8rem;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.18s;
+    }
+    .emoji-overlay.show {
+      opacity: 1;
+    }
+    .progress-dots span {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #f3e0b0;
+      border: 2px solid #DCA32F;
+      margin: 0 2px;
+      transition: background 0.2s;
+    }
+    .progress-dots span.done-correct { background: #10b981; border-color: #10b981; }
+    .progress-dots span.done-wrong { background: #ef4444; border-color: #ef4444; }
+    .progress-dots span.active { background: #DCA32F; border-color: #DCA32F; box-shadow: 0 0 0 3px rgba(220,163,47,0.3); }
+    .result-card { background: #fffcf2; border: 3px solid #DCA32F; border-radius: 1.5rem; }
+    .play-again-btn {
+      background: #DCA32F;
+      color: #fff;
+      font-family: 'Baloo 2', cursive;
+      font-weight: 800;
+      font-size: 1.25rem;
+      border: none;
+      border-radius: 1rem;
+      cursor: pointer;
+      padding: 0.75rem 2.5rem;
+      box-shadow: 0 4px 0 #b07d1a;
+      transition: transform 0.12s, box-shadow 0.12s;
+    }
+    .play-again-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 0 #b07d1a;
+    }
+    .play-again-btn:active {
+      transform: translateY(2px);
+      box-shadow: 0 2px 0 #b07d1a;
+    }
+    .logo-img {
+      width: 20%;
+      max-width: 180px;
+      min-width: 60px;
+      border-radius: 0.75rem;
+      object-fit: contain;
+    }
+  </style>
+  <style>body { box-sizing: border-box; }</style>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js" type="text/javascript"></script>
+  <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
+ </head>
+ <body class="h-full w-full" style="background:#FEF3D7;"><!-- Emoji overlay -->
+  <div id="emoji-overlay" class="emoji-overlay" aria-live="assertive"></div>
+  <main class="w-full h-full flex flex-col" style="min-height:100%;"><!-- Header -->
+   <header class="w-full flex items-center gap-4 px-6 py-4" style="border-bottom: 3px solid #DCA32F; background: #fffcf2;"><img src="logo.jpg" alt="Logo" class="logo-img" loading="lazy" onerror="this.style.background='#f3e0b0'; this.alt='Logo'; this.style.borderRadius='0.75rem';">
+    <div class="flex-1 flex flex-col items-center justify-center text-center">
+     <h1 id="game-title" style="font-size:1.7rem;font-weight:800;color:#4A2C21;line-height:1.1;">Matematická hra</h1>
+     <p id="game-subtitle" style="font-size:1rem;font-weight:600;color:#DCA32F;margin-top:2px;">Sčítanie a odčítanie do 100</p>
+    </div>
+   </header><!-- Game area -->
+   <div id="game-area" class="flex-1 flex flex-col items-center justify-center px-4 py-4" style="min-height:0;"><!-- Game screen -->
+    <div id="game-screen" class="card w-full flex flex-col items-center gap-4 px-6 py-6" style="max-width:520px;"><!-- Progress bar + counter -->
+     <div class="w-full flex items-center justify-between mb-1"><span id="question-counter" style="font-size:0.97rem;font-weight:700;color:#DCA32F;">1 / 20</span> <span id="score-display" style="font-size:0.97rem;font-weight:700;color:#4A2C21;">✔ 0</span>
+     </div><!-- Progress dots -->
+     <div id="progress-dots" class="progress-dots flex flex-wrap justify-center gap-1 mb-1" aria-label="Postup"></div><!-- Timer bar -->
+     <div class="timer-bar-outer w-full mb-1">
+      <div id="timer-bar" class="timer-bar-inner" style="width:100%;"></div>
+     </div><!-- Question -->
+     <div id="question-box" style="font-size:2.8rem;font-weight:800;color:#4A2C21;letter-spacing:0.03em;text-align:center;padding:0.5rem 0;">
+      &nbsp;
+     </div><!-- Answer buttons -->
+     <div id="answer-buttons" class="flex flex-row gap-4 justify-center flex-wrap mt-2"><button class="btn-answer" id="btn-0" onclick="handleAnswer(0)">?</button> <button class="btn-answer" id="btn-1" onclick="handleAnswer(1)">?</button> <button class="btn-answer" id="btn-2" onclick="handleAnswer(2)">?</button>
+     </div>
+    </div><!-- Result screen (hidden initially) -->
+    <div id="result-screen" class="result-card w-full flex flex-col items-center gap-5 px-6 py-8 hidden" style="max-width:520px;">
+     <div id="result-emoji" style="font-size:5rem;"></div>
+     <h2 id="result-title" style="font-size:1.8rem;font-weight:800;color:#4A2C21;text-align:center;"></h2>
+     <div id="result-percent" style="font-size:3.5rem;font-weight:800;color:#DCA32F;"></div>
+     <p id="result-text" style="font-size:1.1rem;font-weight:600;color:#4A2C21;text-align:center;"></p>
+     <div id="result-dots" class="progress-dots flex flex-wrap justify-center gap-1"></div><button class="play-again-btn mt-2" onclick="startGame()">🔄 Hrať znova</button>
+    </div>
+   </div>
+  </main>
+  <script>
+  // ---- State ----
+  const TOTAL = 20;
+  const TIMER_SECONDS = 8;
+  let currentQuestion = 0;
+  let score = 0;
+  let answers = []; // 'correct' | 'wrong'
+  let timerInterval = null;
+  let timerStart = null;
+  let answered = false;
+  let currentCorrect = null;
+  let options = [];
+
+  // ---- SDK Init ----
+  const defaultConfig = {
+    game_title: 'Matematická hra',
+    game_subtitle: 'Sčítanie a odčítanie do 100',
+    background_color: '#FEF3D7',
+    border_color: '#DCA32F',
+    text_color: '#4A2C21',
+  };
+
+  window.elementSdk && window.elementSdk.init({
+    defaultConfig,
+    onConfigChange: async (config) => {
+      document.getElementById('game-title').textContent = config.game_title || defaultConfig.game_title;
+      document.getElementById('game-subtitle').textContent = config.game_subtitle || defaultConfig.game_subtitle;
+      document.body.style.background = config.background_color || defaultConfig.background_color;
+    },
+    mapToCapabilities: (config) => ({
+      recolorables: [
+        {
+          get: () => config.background_color || defaultConfig.background_color,
+          set: (v) => { config.background_color = v; window.elementSdk.setConfig({ background_color: v }); }
+        },
+        {
+          get: () => config.border_color || defaultConfig.border_color,
+          set: (v) => { config.border_color = v; window.elementSdk.setConfig({ border_color: v }); }
+        },
+        {
+          get: () => config.text_color || defaultConfig.text_color,
+          set: (v) => { config.text_color = v; window.elementSdk.setConfig({ text_color: v }); }
+        },
+      ],
+      borderables: [],
+      fontEditable: undefined,
+      fontSizeable: undefined
+    }),
+    mapToEditPanelValues: (config) => new Map([
+      ['game_title', config.game_title || defaultConfig.game_title],
+      ['game_subtitle', config.game_subtitle || defaultConfig.game_subtitle],
+    ])
+  });
+
+  // ---- Game Logic ----
+  function randInt(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+  }
+
+  function generateQuestion() {
+    let a, b, op, result;
+    op = Math.random() < 0.5 ? '+' : '-';
+    if (op === '+') {
+      a = randInt(1, 99);
+      b = randInt(1, 100 - a);
+      result = a + b;
+    } else {
+      a = randInt(2, 100);
+      b = randInt(1, a - 1);
+      result = a - b;
+    }
+    return { a, b, op, result };
+  }
+
+  function generateOptions(correct) {
+    const opts = new Set([correct]);
+    while (opts.size < 3) {
+      let delta = randInt(1, 12) * (Math.random() < 0.5 ? 1 : -1);
+      let candidate = correct + delta;
+      if (candidate >= 0 && candidate <= 200 && candidate !== correct) {
+        opts.add(candidate);
+      }
+    }
+    let arr = Array.from(opts);
+    // shuffle
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
+  function renderProgressDots(container) {
+    container.innerHTML = '';
+    for (let i = 0; i < TOTAL; i++) {
+      const span = document.createElement('span');
+      if (i < answers.length) {
+        span.className = answers[i] === 'correct' ? 'done-correct' : 'done-wrong';
+      } else if (i === currentQuestion) {
+        span.className = 'active';
+      }
+      container.appendChild(span);
+    }
+  }
+
+  function startGame() {
+    currentQuestion = 0;
+    score = 0;
+    answers = [];
+    document.getElementById('result-screen').classList.add('hidden');
+    document.getElementById('game-screen').classList.remove('hidden');
+    nextQuestion();
+  }
+
+  let questionData = null;
+
+  function nextQuestion() {
+    answered = false;
+    clearTimer();
+
+    questionData = generateQuestion();
+    currentCorrect = questionData.result;
+    options = generateOptions(currentCorrect);
+
+    // Update counter
+    document.getElementById('question-counter').textContent = `${currentQuestion + 1} / ${TOTAL}`;
+    document.getElementById('score-display').textContent = `✔ ${score}`;
+
+    // Question text
+    document.getElementById('question-box').textContent = `${questionData.a} ${questionData.op} ${questionData.b} = ?`;
+
+    // Buttons
+    for (let i = 0; i < 3; i++) {
+      const btn = document.getElementById(`btn-${i}`);
+      btn.textContent = options[i];
+      btn.className = 'btn-answer';
+      btn.disabled = false;
+    }
+
+    // Progress dots
+    renderProgressDots(document.getElementById('progress-dots'));
+
+    // Timer
+    startTimer();
+  }
+
+  function startTimer() {
+    timerStart = Date.now();
+    const bar = document.getElementById('timer-bar');
+    bar.style.background = 'linear-gradient(90deg, #DCA32F, #f59e0b)';
+    bar.style.width = '100%';
+
+    timerInterval = setInterval(() => {
+      const elapsed = (Date.now() - timerStart) / 1000;
+      const pct = Math.max(0, 1 - elapsed / TIMER_SECONDS);
+      bar.style.width = (pct * 100) + '%';
+
+      // Color shift to red as time runs out
+      if (pct < 0.3) {
+        bar.style.background = 'linear-gradient(90deg, #ef4444, #f97316)';
+      } else if (pct < 0.6) {
+        bar.style.background = 'linear-gradient(90deg, #f59e0b, #fcd34d)';
+      }
+
+      if (pct <= 0) {
+        clearTimer();
+        if (!answered) timeUp();
+      }
+    }, 80);
+  }
+
+  function clearTimer() {
+    if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+  }
+
+  function timeUp() {
+    answered = true;
+    disableButtons();
+    answers.push('wrong');
+    showEmoji('😢');
+    setTimeout(() => {
+      currentQuestion++;
+      if (currentQuestion < TOTAL) nextQuestion();
+      else showResult();
+    }, 1100);
+  }
+
+  function handleAnswer(idx) {
+    if (answered) return;
+    answered = true;
+    clearTimer();
+    disableButtons();
+
+    const chosen = options[idx];
+    const btn = document.getElementById(`btn-${idx}`);
+
+    if (chosen === currentCorrect) {
+      btn.classList.add('correct');
+      score++;
+      answers.push('correct');
+      showEmoji('😄');
+    } else {
+      btn.classList.add('wrong');
+      // Highlight correct
+      for (let i = 0; i < 3; i++) {
+        if (options[i] === currentCorrect) document.getElementById(`btn-${i}`).classList.add('correct');
+      }
+      answers.push('wrong');
+      showEmoji('😢');
+    }
+
+    setTimeout(() => {
+      currentQuestion++;
+      if (currentQuestion < TOTAL) nextQuestion();
+      else showResult();
+    }, 1100);
+  }
+
+  function disableButtons() {
+    for (let i = 0; i < 3; i++) document.getElementById(`btn-${i}`).disabled = true;
+  }
+
+  function showEmoji(emoji) {
+    const overlay = document.getElementById('emoji-overlay');
+    overlay.textContent = emoji;
+    overlay.classList.add('show');
+    setTimeout(() => overlay.classList.remove('show'), 950);
+  }
+
+  function showResult() {
+    document.getElementById('game-screen').classList.add('hidden');
+    const rs = document.getElementById('result-screen');
+    rs.classList.remove('hidden');
+
+    const pct = Math.round((score / TOTAL) * 100);
+    document.getElementById('result-percent').textContent = pct + '%';
+
+    let emoji, title, text;
+    if (pct === 100) {
+      emoji = '🏆'; title = 'Skvelý výkon!';
+      text = 'Perfektný výsledok! Si matematik/matematička roka!';
+    } else if (pct >= 80) {
+      emoji = '🌟'; title = 'Výborné!';
+      text = 'Veľmi pekný výsledok! Takmer všetko správne!';
+    } else if (pct >= 60) {
+      emoji = '👍'; title = 'Dobre!';
+      text = 'Pekný výsledok. Ešte trochu cvičiť a budeš expert!';
+    } else if (pct >= 40) {
+      emoji = '🙂'; title = 'Ujde to!';
+      text = 'Stredný výsledok. Precvič si príklady a skús znova!';
+    } else {
+      emoji = '💪'; title = 'Nevzdávaj sa!';
+      text = 'Ešte si potrebuješ precvičiť. Skús to znova!';
+    }
+
+    document.getElementById('result-emoji').textContent = emoji;
+    document.getElementById('result-title').textContent = title;
+    document.getElementById('result-text').textContent = `${text} (${score} z ${TOTAL} správnych)`;
+
+    // Result dots
+    const dotsEl = document.getElementById('result-dots');
+    dotsEl.innerHTML = '';
+    for (let i = 0; i < TOTAL; i++) {
+      const span = document.createElement('span');
+      span.className = answers[i] === 'correct' ? 'done-correct' : 'done-wrong';
+      dotsEl.appendChild(span);
+    }
+  }
+
+  // Start immediately
+  startGame();
+</script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9e40c7de45c85b87',t:'MTc3NDgwNzI5Ni4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>

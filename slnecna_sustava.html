@@ -1,0 +1,1068 @@
+<!doctype html>
+<html lang="sk" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prieskumník Slnečnej Sústavy</title>
+  <script src="/_sdk/element_sdk.js"></script>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Exo+2:wght@300;400;500;600&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body, #app-root {
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
+      background: #000008;
+    }
+
+    body { font-family: 'Exo 2', sans-serif; }
+
+    canvas#space-canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      cursor: grab;
+    }
+    canvas#space-canvas:active { cursor: grabbing; }
+
+    .orbitron { font-family: 'Orbitron', monospace; }
+
+    /* HUD overlays */
+    #hud-top {
+      position: absolute; top: 0; left: 0; right: 0;
+      pointer-events: none;
+      padding: 14px 18px;
+      display: flex; justify-content: space-between; align-items: flex-start;
+    }
+
+    #hud-bottom {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      pointer-events: none;
+      padding: 12px 18px;
+      display: flex; justify-content: space-between; align-items: flex-end;
+    }
+
+    .glass-panel {
+      background: rgba(5, 15, 40, 0.82);
+      border: 1px solid rgba(80, 160, 255, 0.25);
+      border-radius: 10px;
+      backdrop-filter: blur(12px);
+      padding: 10px 14px;
+      pointer-events: all;
+    }
+
+    .glass-panel-sm {
+      background: rgba(5, 15, 40, 0.78);
+      border: 1px solid rgba(80, 160, 255, 0.2);
+      border-radius: 8px;
+      backdrop-filter: blur(10px);
+      padding: 7px 12px;
+      pointer-events: all;
+    }
+
+    /* Info panel */
+    #info-panel {
+      position: absolute;
+      top: 50%;
+      right: 18px;
+      transform: translateY(-50%);
+      width: 260px;
+      pointer-events: all;
+      transition: opacity 0.35s, transform 0.35s;
+    }
+    #info-panel.hidden-panel {
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(-50%) translateX(30px);
+    }
+
+    /* Controls panel */
+    #controls-panel {
+      position: absolute;
+      bottom: 60px;
+      left: 18px;
+      width: 210px;
+      pointer-events: all;
+    }
+
+    /* Nav buttons */
+    .nav-btn {
+      background: rgba(30, 80, 180, 0.35);
+      border: 1px solid rgba(80, 160, 255, 0.4);
+      border-radius: 7px;
+      color: #a8d4ff;
+      cursor: pointer;
+      font-family: 'Exo 2', sans-serif;
+      font-size: 12px;
+      padding: 6px 12px;
+      transition: background 0.2s, border-color 0.2s, color 0.2s;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .nav-btn:hover {
+      background: rgba(50, 120, 255, 0.55);
+      border-color: rgba(120, 200, 255, 0.7);
+      color: #e0f0ff;
+    }
+    .nav-btn.active-btn {
+      background: rgba(60, 140, 255, 0.65);
+      border-color: rgba(150, 210, 255, 0.9);
+      color: #ffffff;
+    }
+
+    /* Body label tags floating */
+    .body-label {
+      position: absolute;
+      transform: translate(-50%, -140%);
+      pointer-events: none;
+      color: #c8e8ff;
+      font-family: 'Orbitron', monospace;
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-shadow: 0 0 8px rgba(80, 160, 255, 0.9);
+      white-space: nowrap;
+      transition: opacity 0.3s;
+    }
+
+    /* Orbit lines */
+    .orbit-ring {
+      position: absolute;
+      border-radius: 50%;
+      border: 1px dashed rgba(80, 160, 255, 0.18);
+      pointer-events: none;
+      transform: translate(-50%, -50%);
+    }
+
+    /* Tooltips */
+    #tooltip-box {
+      position: absolute;
+      background: rgba(5, 20, 60, 0.92);
+      border: 1px solid rgba(80, 180, 255, 0.4);
+      border-radius: 8px;
+      padding: 8px 12px;
+      color: #c8e8ff;
+      font-size: 12px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.2s;
+      max-width: 200px;
+      backdrop-filter: blur(8px);
+      z-index: 50;
+    }
+    #tooltip-box.visible { opacity: 1; }
+
+    /* Fact overlay */
+    #fact-overlay {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: min(420px, 90%);
+      z-index: 100;
+      transition: opacity 0.3s;
+    }
+    #fact-overlay.hidden-panel { opacity: 0; pointer-events: none; }
+
+    /* Speedometer */
+    #speed-meter {
+      font-family: 'Orbitron', monospace;
+      font-size: 11px;
+      color: #7ec8e3;
+      letter-spacing: 0.06em;
+    }
+
+    /* Stars pulse */
+    @keyframes star-twinkle {
+      0%, 100% { opacity: 0.6; }
+      50% { opacity: 1; }
+    }
+
+    /* Glow ring */
+    @keyframes glow-pulse {
+      0%, 100% { box-shadow: 0 0 20px rgba(80, 160, 255, 0.3); }
+      50% { box-shadow: 0 0 35px rgba(80, 160, 255, 0.6); }
+    }
+
+    .glow-ring { animation: glow-pulse 2.5s ease-in-out infinite; }
+
+    /* Progress bar */
+    .prog-bar {
+      height: 4px;
+      border-radius: 2px;
+      background: rgba(30, 60, 120, 0.5);
+      overflow: hidden;
+    }
+    .prog-fill {
+      height: 100%;
+      border-radius: 2px;
+      background: linear-gradient(90deg, #3b82f6, #60e0ff);
+      transition: width 0.5s;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(80, 160, 255, 0.3); border-radius: 2px; }
+
+    .fact-badge {
+      display: inline-block;
+      background: rgba(60, 140, 255, 0.2);
+      border: 1px solid rgba(80, 180, 255, 0.35);
+      border-radius: 20px;
+      padding: 2px 10px;
+      font-size: 10px;
+      color: #88ccff;
+      font-family: 'Orbitron', monospace;
+      letter-spacing: 0.06em;
+      margin-bottom: 6px;
+    }
+
+    #overlay-bg {
+      position: absolute; inset: 0;
+      background: rgba(0,0,5,0.55);
+      z-index: 99;
+      transition: opacity 0.3s;
+    }
+    #overlay-bg.hidden-panel { opacity: 0; pointer-events: none; }
+  </style>
+  <style>body { box-sizing: border-box; }</style>
+  <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
+ </head>
+ <body>
+  <div id="app-root" class="relative w-full h-full"><!-- Main 3D Canvas -->
+   <canvas id="space-canvas"></canvas><!-- Floating body labels container -->
+   <div id="labels-container" style="position:absolute;inset:0;pointer-events:none;"></div><!-- TOP HUD -->
+   <div id="hud-top">
+    <div class="glass-panel" style="min-width:200px;">
+     <div class="orbitron text-blue-300 font-bold" style="font-size:13px;" id="app-title-el">
+      ☀ Prieskumník SS
+     </div>
+     <div style="font-size:10px;color:#6a9fd8;margin-top:3px;" id="subtitle-el">
+      Slnečná sústava · 3D Simulácia
+     </div>
+    </div>
+    <div class="flex gap-2 items-start">
+     <div class="glass-panel-sm flex flex-col gap-1">
+      <div style="font-size:10px;color:#6a9fd8;" class="orbitron">
+       VZDIALENOSŤ
+      </div>
+      <div id="dist-display" style="font-size:12px;color:#a8d4ff;font-family:'Orbitron',monospace;">
+       —
+      </div>
+     </div><button class="nav-btn" onclick="toggleFactPanel()" id="facts-btn"> <i data-lucide="book-open" style="width:13px;height:13px;"></i> Fakty </button> <button class="nav-btn" id="orbits-btn" onclick="toggleOrbits()"> <i data-lucide="circle" style="width:13px;height:13px;"></i> Obežné dráhy </button>
+    </div>
+   </div><!-- BOTTOM HUD -->
+   <div id="hud-bottom">
+    <div id="speed-meter" class="glass-panel-sm">
+     <div style="font-size:9px;color:#4a7faa;margin-bottom:2px;">
+      RÝCHLOSŤ SIMULÁCIE
+     </div>
+     <div id="sim-speed-val" style="color:#7ec8e3;">
+      1× reálny čas
+     </div>
+    </div>
+    <div class="flex gap-2 items-end">
+     <div class="glass-panel-sm flex gap-2"><button class="nav-btn" onclick="changeSpeed(-1)" title="Spomaľ"> <i data-lucide="rewind" style="width:13px;height:13px;"></i> </button> <button class="nav-btn" id="pause-btn" onclick="togglePause()"> <i data-lucide="pause" style="width:13px;height:13px;"></i> </button> <button class="nav-btn" onclick="changeSpeed(1)" title="Zrýchli"> <i data-lucide="fast-forward" style="width:13px;height:13px;"></i> </button>
+     </div><button class="nav-btn" onclick="resetCamera()"> <i data-lucide="home" style="width:13px;height:13px;"></i> Reset </button>
+    </div>
+   </div><!-- CONTROLS PANEL -->
+   <div id="controls-panel" class="glass-panel" style="bottom:65px;left:18px;position:absolute;">
+    <div style="font-size:10px;color:#4a7faa;margin-bottom:8px;" class="orbitron">
+     NAVIGÁCIA
+    </div>
+    <div class="flex flex-col gap-1"><button class="nav-btn" onclick="focusBody('sun')">☀ Slnko</button> <button class="nav-btn" onclick="focusBody('earth')">🌍 Zem</button> <button class="nav-btn" onclick="focusBody('moon')">🌑 Mesiac</button> <button class="nav-btn" onclick="focusBody('mars')">🔴 Mars</button>
+    </div>
+    <div style="margin-top:10px;font-size:9px;color:#4a7faa;line-height:1.6;">
+     🖱 Ťahaj = rotácia<br>
+      🖱 Koliesko = zoom<br>
+      👆 Klikni na planétu
+    </div>
+   </div><!-- INFO PANEL (right side) -->
+   <div id="info-panel" class="glass-panel hidden-panel">
+    <div class="flex justify-between items-start mb-2">
+     <div id="info-badge" class="fact-badge">
+      ZEMIA
+     </div><button class="nav-btn" style="padding:3px 7px;" onclick="closeInfoPanel()"> <i data-lucide="x" style="width:12px;height:12px;"></i> </button>
+    </div>
+    <div id="info-name" class="orbitron text-white font-bold" style="font-size:15px;margin-bottom:6px;">
+     Zem
+    </div>
+    <div id="info-desc" style="font-size:12px;color:#8ab8d8;line-height:1.6;margin-bottom:10px;"></div>
+    <div style="border-top:1px solid rgba(80,160,255,0.15);padding-top:8px;margin-top:4px;">
+     <div style="font-size:10px;color:#4a7faa;margin-bottom:6px;" class="orbitron">
+      FYZIKÁLNE ÚDAJE
+     </div>
+     <div id="info-stats" class="flex flex-col gap-1"></div>
+    </div>
+    <div id="orbit-info-section" style="border-top:1px solid rgba(80,160,255,0.15);padding-top:8px;margin-top:8px;">
+     <div style="font-size:10px;color:#4a7faa;margin-bottom:5px;" class="orbitron">
+      OBEŽNÁ DRÁHA
+     </div>
+     <div id="orbit-info-text" style="font-size:11px;color:#7ec8e3;line-height:1.6;"></div>
+     <div id="orbit-prog-wrap" class="prog-bar mt-2">
+      <div id="orbit-prog" class="prog-fill" style="width:0%"></div>
+     </div>
+     <div id="orbit-prog-label" style="font-size:9px;color:#4a7faa;margin-top:3px;"></div>
+    </div>
+   </div><!-- TOOLTIP -->
+   <div id="tooltip-box"></div><!-- FACT OVERLAY background -->
+   <div id="overlay-bg" class="hidden-panel" onclick="closeFactPanel()"></div><!-- FACT/EDUCATIONAL OVERLAY -->
+   <div id="fact-overlay" class="hidden-panel glass-panel" style="max-height:80%;overflow-y:auto;">
+    <div class="flex justify-between items-center mb-3">
+     <div class="orbitron text-blue-300 font-bold" style="font-size:14px;">
+      📚 Vzdelávacie centrum
+     </div><button class="nav-btn" style="padding:4px 8px;" onclick="closeFactPanel()"> <i data-lucide="x" style="width:13px;height:13px;"></i> </button>
+    </div>
+    <div id="fact-tabs" class="flex gap-2 mb-3 flex-wrap"></div>
+    <div id="fact-content" style="font-size:12px;color:#8ab8d8;line-height:1.8;"></div>
+   </div>
+  </div>
+  <script>
+// ============================================================
+//  SOLAR SYSTEM 3D EXPLORER — Pure Canvas WebGL-style 2.5D
+// ============================================================
+
+const canvas = document.getElementById('space-canvas');
+const ctx = canvas.getContext('2d');
+
+// --- Config ---
+const defaultConfig = {
+  app_title: 'Prieskumník SS',
+  info_earth: 'Tretia planéta od Slnka, domov života. Modrá planéta pokrytá vodou a zahalená v atmosfére bohatej na kyslík.',
+  info_moon: 'Prirodzený satelit Zeme. Bezatmosferické teleso s krátermi a starými lávovými pláňami.',
+  info_mars: 'Štvrtá planéta od Slnka, Červená planéta. Má najvyššiu sopku Olympus Mons a obrovský kaňon Valles Marineris.'
+};
+
+// ============================================================
+//  CELESTIAL BODY DATA
+// ============================================================
+const bodies = {
+  sun: {
+    name: 'Slnko', emoji: '☀',
+    radius: 55, color: '#FDB813', glowColor: 'rgba(253,184,19,',
+    orbitRadius: 0, orbitPeriod: 0, angle: 0,
+    desc: 'Centrálna hviezda Slnečnej sústavy. Obsahuje 99,86% celkovej hmotnosti sústavy. Jej jadro dosahuje teploty až 15 miliónov °C.',
+    stats: [
+      { label: 'Hmotnosť', val: '1.989 × 10³⁰ kg' },
+      { label: 'Polomer', val: '695 700 km' },
+      { label: 'Teplota povrchu', val: '5 778 K' },
+      { label: 'Vek', val: '4.6 miliárd rokov' }
+    ],
+    orbitFact: null, moons: []
+  },
+  earth: {
+    name: 'Zem', emoji: '🌍',
+    radius: 16, color: '#2E86AB', glowColor: 'rgba(46,134,171,',
+    orbitRadius: 200, orbitPeriod: 365, angle: Math.PI * 0.3,
+    desc: defaultConfig.info_earth,
+    stats: [
+      { label: 'Polomer', val: '6 371 km' },
+      { label: 'Hmotnosť', val: '5.972 × 10²⁴ kg' },
+      { label: 'Obežná dráha', val: '365.25 dní' },
+      { label: 'Satelity', val: '1 (Mesiac)' }
+    ],
+    orbitFact: 'Zem obiehá Slnko rýchlosťou ~29,8 km/s. Obežná dráha je mierne eliptická.',
+    moons: ['moon']
+  },
+  moon: {
+    name: 'Mesiac', emoji: '🌑',
+    radius: 6, color: '#B0B0B0', glowColor: 'rgba(176,176,176,',
+    orbitRadius: 42, orbitPeriod: 27.3, angle: Math.PI,
+    parent: 'earth',
+    desc: defaultConfig.info_moon,
+    stats: [
+      { label: 'Polomer', val: '1 737 km' },
+      { label: 'Vzdialenosť od Zeme', val: '384 400 km' },
+      { label: 'Obežná doba', val: '27.3 dní' },
+      { label: 'Atmosféra', val: 'Prakticky žiadna' }
+    ],
+    orbitFact: 'Mesiac je slapovo zamknutý — vždy otáča tou istou stranou k Zemi.',
+    moons: []
+  },
+  mars: {
+    name: 'Mars', emoji: '🔴',
+    radius: 11, color: '#C1440E', glowColor: 'rgba(193,68,14,',
+    orbitRadius: 340, orbitPeriod: 687, angle: Math.PI * 1.2,
+    desc: defaultConfig.info_mars,
+    stats: [
+      { label: 'Polomer', val: '3 390 km' },
+      { label: 'Obežná dráha', val: '687 dní' },
+      { label: 'Satelity', val: 'Phobos, Deimos' },
+      { label: 'Teplota', val: '−63 °C (priemer)' }
+    ],
+    orbitFact: 'Mars má excentrickú obežnú dráhu — vzdialenosť od Slnka variuje výraznejšie ako Zem.',
+    moons: []
+  }
+};
+
+// ============================================================
+//  EDUCATIONAL FACTS
+// ============================================================
+const educFacts = {
+  'Obežné dráhy': [
+    '🪐 <strong>Keplerove zákony:</strong> Planéty obiehajú Slnko po eliptických dráhach, kde Slnko je v jednom ohnisku.',
+    '⚡ <strong>Rýchlosť na obežnej dráhe:</strong> Čím bližšie k Slnku, tým rýchlejšie planéta letí. Zem: 29,8 km/s, Mars: 24,1 km/s.',
+    '🔄 <strong>Rezonancia:</strong> Niektoré telesá majú obežné doby v celých pomeroch — napr. 2:1 alebo 3:2.',
+    '📐 <strong>Sklon dráhy:</strong> Všetky planéty obiehajú zhruba v rovine tzv. ekliptiky, ktorá zodpovedá rovine Slnečnej sústavy.'
+  ],
+  'Vzdialenosti': [
+    '📏 <strong>Astronomická jednotka (AU):</strong> Priemerná vzdialenosť Zeme od Slnka = 149,6 milióna km.',
+    '🌍→🔴 <strong>Zem–Mars:</strong> Vzdialenosť sa mení od 54,6 mil. km (opozícia) po 401 mil. km (konjunkcia).',
+    '🌍→🌑 <strong>Zem–Mesiac:</strong> 384 400 km. Svetlo to prejde za 1,3 sekundy.',
+    '⚡ <strong>Svetlo zo Slnka:</strong> K Zemi doletí za 8 minút 20 sekúnd. K Marsu za ~12-22 minút.'
+  ],
+  'Fyzika': [
+    '🌊 <strong>Slapové sily:</strong> Gravitácia Mesiaca deformuje oceány Zeme a spomaľuje jej rotáciu o ~1,4 ms za storočie.',
+    '⚖️ <strong>Gravitácia:</strong> Na Marse by si vážil len 38% svojej hmotnosti na Zemi.',
+    '🔭 <strong>Heliocentrizmus:</strong> Kopernik v r. 1543 navrhol model, v ktorom Slnko je stredom sústavy.',
+    '💫 <strong>Gravitačný zákon:</strong> Sila medzi dvoma telesami klesá so štvorcom vzdialenosti (F ~ 1/r²).'
+  ]
+};
+
+// ============================================================
+//  CAMERA & STATE
+// ============================================================
+let cam = { x: 0, y: 0, zoom: 1, targetZoom: 1, focusBody: null };
+let drag = { active: false, startX: 0, startY: 0, camX: 0, camY: 0 };
+let time = 0;
+let simSpeed = 1;
+let paused = false;
+let showOrbits = true;
+let selectedBody = null;
+let speedLevels = [0.1, 0.5, 1, 5, 20, 100, 500];
+let speedIdx = 2;
+
+// Computed positions each frame
+const positions = {};
+
+// ============================================================
+//  STARS
+// ============================================================
+const stars = [];
+function genStars() {
+  stars.length = 0;
+  for (let i = 0; i < 600; i++) {
+    stars.push({
+      x: (Math.random() - 0.5) * 4000,
+      y: (Math.random() - 0.5) * 4000,
+      r: Math.random() * 1.5 + 0.2,
+      alpha: Math.random() * 0.6 + 0.3,
+      twinkle: Math.random() * Math.PI * 2
+    });
+  }
+}
+genStars();
+
+// ============================================================
+//  CANVAS RESIZE
+// ============================================================
+function resize() {
+  canvas.width = canvas.offsetWidth;
+  canvas.height = canvas.offsetHeight;
+}
+window.addEventListener('resize', resize);
+resize();
+
+function cx() { return canvas.width / 2; }
+function cy() { return canvas.height / 2; }
+
+// ============================================================
+//  WORLD→SCREEN TRANSFORM
+// ============================================================
+function toScreen(wx, wy) {
+  return {
+    x: cx() + (wx - cam.x) * cam.zoom,
+    y: cy() + (wy - cam.y) * cam.zoom
+  };
+}
+function toWorld(sx, sy) {
+  return {
+    x: (sx - cx()) / cam.zoom + cam.x,
+    y: (sy - cy()) / cam.zoom + cam.y
+  };
+}
+
+// ============================================================
+//  COMPUTE POSITIONS
+// ============================================================
+function computePositions(t) {
+  // Sun at origin
+  positions['sun'] = { x: 0, y: 0 };
+
+  // Earth
+  const eAngle = bodies.earth.angle + (t / bodies.earth.orbitPeriod) * Math.PI * 2;
+  positions['earth'] = {
+    x: Math.cos(eAngle) * bodies.earth.orbitRadius,
+    y: Math.sin(eAngle) * bodies.earth.orbitRadius
+  };
+
+  // Moon (orbits Earth)
+  const mAngle = bodies.moon.angle + (t / bodies.moon.orbitPeriod) * Math.PI * 2;
+  positions['moon'] = {
+    x: positions['earth'].x + Math.cos(mAngle) * bodies.moon.orbitRadius,
+    y: positions['earth'].y + Math.sin(mAngle) * bodies.moon.orbitRadius
+  };
+
+  // Mars
+  const marsAngle = bodies.mars.angle + (t / bodies.mars.orbitPeriod) * Math.PI * 2;
+  positions['mars'] = {
+    x: Math.cos(marsAngle) * bodies.mars.orbitRadius,
+    y: Math.sin(marsAngle) * bodies.mars.orbitRadius
+  };
+}
+
+// ============================================================
+//  DRAW HELPERS
+// ============================================================
+function drawGlow(sx, sy, radius, color, alpha = 0.25, layers = 3) {
+  for (let i = layers; i >= 1; i--) {
+    const gr = radius * (1 + i * 0.7);
+    const grd = ctx.createRadialGradient(sx, sy, radius * 0.5, sx, sy, gr);
+    grd.addColorStop(0, color + (alpha / i) + ')');
+    grd.addColorStop(1, color + '0)');
+    ctx.beginPath();
+    ctx.arc(sx, sy, gr, 0, Math.PI * 2);
+    ctx.fillStyle = grd;
+    ctx.fill();
+  }
+}
+
+function drawBody(key, t) {
+  const b = bodies[key];
+  const pos = positions[key];
+  const sc = toScreen(pos.x, pos.y);
+  const sr = Math.max(b.radius * cam.zoom, key === 'sun' ? 8 : 3);
+
+  // Glow
+  drawGlow(sc.x, sc.y, sr, b.glowColor, 0.3, 3);
+
+  // Body sphere with gradient
+  const grd = ctx.createRadialGradient(sc.x - sr * 0.3, sc.y - sr * 0.3, sr * 0.1, sc.x, sc.y, sr);
+
+  if (key === 'sun') {
+    grd.addColorStop(0, '#FFF5CC');
+    grd.addColorStop(0.4, '#FDB813');
+    grd.addColorStop(0.8, '#E8890C');
+    grd.addColorStop(1, '#C05A00');
+  } else if (key === 'earth') {
+    grd.addColorStop(0, '#6DD5FA');
+    grd.addColorStop(0.3, '#2E86AB');
+    grd.addColorStop(0.7, '#1a6b4a');
+    grd.addColorStop(1, '#0d3d24');
+  } else if (key === 'moon') {
+    grd.addColorStop(0, '#E0E0E0');
+    grd.addColorStop(0.5, '#B0B0B0');
+    grd.addColorStop(1, '#707070');
+  } else if (key === 'mars') {
+    grd.addColorStop(0, '#E8825A');
+    grd.addColorStop(0.4, '#C1440E');
+    grd.addColorStop(0.8, '#922E06');
+    grd.addColorStop(1, '#5a1a02');
+  }
+
+  ctx.beginPath();
+  ctx.arc(sc.x, sc.y, sr, 0, Math.PI * 2);
+  ctx.fillStyle = grd;
+  ctx.fill();
+
+  // Selection ring
+  if (selectedBody === key) {
+    ctx.beginPath();
+    ctx.arc(sc.x, sc.y, sr + 5, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(150, 220, 255, 0.7)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([5, 4]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Store screen pos for label/click detection
+  positions[key]._sx = sc.x;
+  positions[key]._sy = sc.y;
+  positions[key]._sr = sr;
+}
+
+function drawOrbit(key) {
+  if (!showOrbits) return;
+  const b = bodies[key];
+  if (!b.orbitRadius) return;
+
+  let centerPos = { x: 0, y: 0 };
+  if (b.parent) centerPos = positions[b.parent];
+
+  const sc = toScreen(centerPos.x, centerPos.y);
+  const r = b.orbitRadius * cam.zoom;
+
+  ctx.beginPath();
+  ctx.arc(sc.x, sc.y, r, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(80, 160, 255, 0.15)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 6]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+function drawStars(t) {
+  stars.forEach(s => {
+    const sc = toScreen(s.x, s.y);
+    if (sc.x < -10 || sc.x > canvas.width + 10 || sc.y < -10 || sc.y > canvas.height + 10) return;
+    const twinkAlpha = s.alpha + 0.2 * Math.sin(t * 0.5 + s.twinkle);
+    ctx.beginPath();
+    ctx.arc(sc.x, sc.y, s.r, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(255,255,255,${Math.max(0.1, Math.min(1, twinkAlpha))})`;
+    ctx.fill();
+  });
+}
+
+function drawDistanceLine() {
+  if (!selectedBody || selectedBody === 'sun') return;
+  const from = positions['sun'];
+  const to = positions[selectedBody];
+  const s1 = toScreen(from.x, from.y);
+  const s2 = toScreen(to.x, to.y);
+
+  ctx.beginPath();
+  ctx.moveTo(s1.x, s1.y);
+  ctx.lineTo(s2.x, s2.y);
+  ctx.strokeStyle = 'rgba(255,220,80,0.25)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([3, 5]);
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+// ============================================================
+//  UPDATE LABELS
+// ============================================================
+function updateLabels() {
+  const container = document.getElementById('labels-container');
+  container.innerHTML = '';
+  Object.keys(bodies).forEach(key => {
+    const pos = positions[key];
+    if (!pos || pos._sx === undefined) return;
+    const sr = pos._sr || 10;
+    const label = document.createElement('div');
+    label.className = 'body-label';
+    label.style.left = pos._sx + 'px';
+    label.style.top = (pos._sy - sr) + 'px';
+    label.textContent = bodies[key].name;
+    container.appendChild(label);
+  });
+}
+
+// ============================================================
+//  UPDATE DISTANCE DISPLAY
+// ============================================================
+const realDistances = {
+  earth: '149.6 mil. km',
+  moon: '384 400 km',
+  mars: '~225 mil. km'
+};
+
+function updateDistDisplay() {
+  const el = document.getElementById('dist-display');
+  if (!selectedBody || selectedBody === 'sun') {
+    el.textContent = '—';
+    return;
+  }
+  // Compute relative to parent or sun
+  const b = bodies[selectedBody];
+  if (b.parent) {
+    const pe = positions[b.parent];
+    const me = positions[selectedBody];
+    const d = Math.sqrt((me.x - pe.x) ** 2 + (me.y - pe.y) ** 2);
+    el.textContent = realDistances[selectedBody] || (d.toFixed(0) + ' AU');
+  } else {
+    el.textContent = realDistances[selectedBody] || '—';
+  }
+}
+
+// ============================================================
+//  ORBIT PROGRESS BAR
+// ============================================================
+function updateOrbitProgress() {
+  if (!selectedBody) return;
+  const b = bodies[selectedBody];
+  if (!b.orbitRadius) return;
+  const angle = (bodies[selectedBody].angle + (time / b.orbitPeriod) * Math.PI * 2) % (Math.PI * 2);
+  const pct = ((angle + Math.PI * 2) % (Math.PI * 2)) / (Math.PI * 2) * 100;
+  const progEl = document.getElementById('orbit-prog');
+  const lblEl = document.getElementById('orbit-prog-label');
+  if (progEl) progEl.style.width = pct.toFixed(1) + '%';
+  if (lblEl) lblEl.textContent = 'Pozícia na dráhe: ' + pct.toFixed(0) + '%';
+}
+
+// ============================================================
+//  MAIN RENDER LOOP
+// ============================================================
+let lastTime = null;
+function render(ts) {
+  if (!lastTime) lastTime = ts;
+  const dtMs = ts - lastTime;
+  lastTime = ts;
+
+  if (!paused) {
+    time += (dtMs / 1000) * simSpeed * 0.01; // scaled "years"
+  }
+
+  // Camera smooth zoom
+  cam.zoom += (cam.targetZoom - cam.zoom) * 0.1;
+
+  // Focus tracking
+  if (cam.focusBody && positions[cam.focusBody]) {
+    const tp = positions[cam.focusBody];
+    cam.x += (tp.x - cam.x) * 0.07;
+    cam.y += (tp.y - cam.y) * 0.07;
+  }
+
+  computePositions(time);
+
+  // Clear
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Background
+  const bgGrd = ctx.createRadialGradient(cx(), cy(), 0, cx(), cy(), Math.max(canvas.width, canvas.height));
+  bgGrd.addColorStop(0, '#04081a');
+  bgGrd.addColorStop(1, '#000308');
+  ctx.fillStyle = bgGrd;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Stars
+  drawStars(time * 50);
+
+  // Orbits
+  ['earth', 'moon', 'mars'].forEach(drawOrbit);
+
+  // Bodies
+  ['sun', 'mars', 'earth', 'moon'].forEach(k => drawBody(k, time));
+
+  // Distance line
+  drawDistanceLine();
+
+  // Labels
+  updateLabels();
+  updateDistDisplay();
+  if (selectedBody) updateOrbitProgress();
+
+  requestAnimationFrame(render);
+}
+
+requestAnimationFrame(render);
+
+// ============================================================
+//  INPUT: MOUSE / TOUCH
+// ============================================================
+canvas.addEventListener('mousedown', e => {
+  drag.active = true;
+  drag.startX = e.clientX;
+  drag.startY = e.clientY;
+  drag.camX = cam.x;
+  drag.camY = cam.y;
+  drag.moved = false;
+});
+
+canvas.addEventListener('mousemove', e => {
+  if (drag.active) {
+    const dx = e.clientX - drag.startX;
+    const dy = e.clientY - drag.startY;
+    if (Math.abs(dx) + Math.abs(dy) > 3) drag.moved = true;
+    cam.x = drag.camX - dx / cam.zoom;
+    cam.y = drag.camY - dy / cam.zoom;
+    cam.focusBody = null;
+  }
+  // Tooltip
+  showTooltipAt(e.clientX, e.clientY);
+});
+
+canvas.addEventListener('mouseup', e => {
+  if (!drag.moved) handleClick(e.clientX, e.clientY);
+  drag.active = false;
+  drag.moved = false;
+});
+
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const factor = e.deltaY > 0 ? 0.85 : 1.18;
+  cam.targetZoom = Math.max(0.2, Math.min(8, cam.targetZoom * factor));
+}, { passive: false });
+
+// Touch
+let lastTouchDist = null;
+canvas.addEventListener('touchstart', e => {
+  if (e.touches.length === 1) {
+    drag.active = true;
+    drag.startX = e.touches[0].clientX;
+    drag.startY = e.touches[0].clientY;
+    drag.camX = cam.x;
+    drag.camY = cam.y;
+    drag.moved = false;
+  }
+  if (e.touches.length === 2) {
+    lastTouchDist = Math.hypot(
+      e.touches[0].clientX - e.touches[1].clientX,
+      e.touches[0].clientY - e.touches[1].clientY
+    );
+  }
+}, { passive: true });
+
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  if (e.touches.length === 1 && drag.active) {
+    const dx = e.touches[0].clientX - drag.startX;
+    const dy = e.touches[0].clientY - drag.startY;
+    if (Math.abs(dx) + Math.abs(dy) > 5) drag.moved = true;
+    cam.x = drag.camX - dx / cam.zoom;
+    cam.y = drag.camY - dy / cam.zoom;
+    cam.focusBody = null;
+  }
+  if (e.touches.length === 2 && lastTouchDist !== null) {
+    const d = Math.hypot(
+      e.touches[0].clientX - e.touches[1].clientX,
+      e.touches[0].clientY - e.touches[1].clientY
+    );
+    cam.targetZoom = Math.max(0.2, Math.min(8, cam.targetZoom * (d / lastTouchDist)));
+    lastTouchDist = d;
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchend', e => {
+  if (!drag.moved && e.changedTouches.length === 1) {
+    handleClick(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+  }
+  drag.active = false;
+  lastTouchDist = null;
+});
+
+// ============================================================
+//  CLICK DETECTION
+// ============================================================
+function hitTest(sx, sy) {
+  const keys = ['moon', 'earth', 'mars', 'sun'];
+  for (const k of keys) {
+    const p = positions[k];
+    if (!p || p._sx === undefined) continue;
+    const dist = Math.hypot(sx - p._sx, sy - p._sy);
+    const hitR = Math.max(p._sr + 8, 16);
+    if (dist <= hitR) return k;
+  }
+  return null;
+}
+
+function handleClick(sx, sy) {
+  const hit = hitTest(sx, sy);
+  if (hit) {
+    selectBody(hit);
+  } else {
+    deselectBody();
+  }
+}
+
+function showTooltipAt(sx, sy) {
+  const hit = hitTest(sx, sy);
+  const tip = document.getElementById('tooltip-box');
+  if (hit) {
+    const b = bodies[hit];
+    tip.innerHTML = `<strong style="color:#c8e8ff;">${b.emoji} ${b.name}</strong><br><span style="color:#6a9fd8;font-size:10px;">Klikni pre detail</span>`;
+    tip.style.left = (sx + 14) + 'px';
+    tip.style.top = (sy - 10) + 'px';
+    tip.classList.add('visible');
+    canvas.style.cursor = 'pointer';
+  } else {
+    tip.classList.remove('visible');
+    canvas.style.cursor = drag.active ? 'grabbing' : 'grab';
+  }
+}
+
+// ============================================================
+//  SELECT / DESELECT
+// ============================================================
+function selectBody(key) {
+  selectedBody = key;
+  cam.focusBody = key;
+  cam.targetZoom = key === 'sun' ? 1.0 : key === 'moon' ? 4.0 : 1.8;
+  openInfoPanel(key);
+}
+
+function deselectBody() {
+  selectedBody = null;
+  cam.focusBody = null;
+  closeInfoPanel();
+}
+
+function focusBody(key) {
+  selectBody(key);
+}
+
+// ============================================================
+//  INFO PANEL
+// ============================================================
+function openInfoPanel(key) {
+  const b = bodies[key];
+  const panel = document.getElementById('info-panel');
+
+  document.getElementById('info-badge').textContent = b.name.toUpperCase();
+  document.getElementById('info-name').textContent = b.emoji + ' ' + b.name;
+  document.getElementById('info-desc').textContent = b.desc;
+
+  // Stats
+  const statsEl = document.getElementById('info-stats');
+  statsEl.innerHTML = '';
+  b.stats.forEach(s => {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;justify-content:space-between;font-size:11px;border-bottom:1px solid rgba(80,160,255,0.08);padding-bottom:3px;';
+    row.innerHTML = `<span style="color:#4a7faa;">${s.label}</span><span style="color:#a8d4ff;">${s.val}</span>`;
+    statsEl.appendChild(row);
+  });
+
+  // Orbit
+  const orbitSec = document.getElementById('orbit-info-section');
+  const orbitText = document.getElementById('orbit-info-text');
+  if (b.orbitFact) {
+    orbitSec.style.display = '';
+    orbitText.textContent = b.orbitFact;
+  } else {
+    orbitSec.style.display = 'none';
+  }
+
+  panel.classList.remove('hidden-panel');
+}
+
+function closeInfoPanel() {
+  document.getElementById('info-panel').classList.add('hidden-panel');
+  selectedBody = null;
+  cam.focusBody = null;
+}
+
+// ============================================================
+//  FACT OVERLAY
+// ============================================================
+let factTab = 0;
+const factKeys = Object.keys(educFacts);
+
+function buildFactTabs() {
+  const tabsEl = document.getElementById('fact-tabs');
+  tabsEl.innerHTML = '';
+  factKeys.forEach((k, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'nav-btn' + (i === factTab ? ' active-btn' : '');
+    btn.textContent = k;
+    btn.onclick = () => { factTab = i; buildFactTabs(); updateFactContent(); };
+    tabsEl.appendChild(btn);
+  });
+}
+
+function updateFactContent() {
+  const key = factKeys[factTab];
+  const facts = educFacts[key];
+  const contentEl = document.getElementById('fact-content');
+  contentEl.innerHTML = facts.map(f =>
+    `<div style="margin-bottom:10px;padding:8px 10px;background:rgba(30,80,160,0.15);border-radius:6px;border-left:2px solid rgba(80,160,255,0.4);">${f}</div>`
+  ).join('');
+}
+
+function toggleFactPanel() {
+  const overlay = document.getElementById('fact-overlay');
+  const bg = document.getElementById('overlay-bg');
+  const isHidden = overlay.classList.contains('hidden-panel');
+  if (isHidden) {
+    buildFactTabs();
+    updateFactContent();
+    overlay.classList.remove('hidden-panel');
+    bg.classList.remove('hidden-panel');
+    document.getElementById('facts-btn').classList.add('active-btn');
+  } else {
+    closeFactPanel();
+  }
+}
+
+function closeFactPanel() {
+  document.getElementById('fact-overlay').classList.add('hidden-panel');
+  document.getElementById('overlay-bg').classList.add('hidden-panel');
+  document.getElementById('facts-btn').classList.remove('active-btn');
+}
+
+// ============================================================
+//  TOGGLES
+// ============================================================
+function toggleOrbits() {
+  showOrbits = !showOrbits;
+  const btn = document.getElementById('orbits-btn');
+  if (showOrbits) btn.classList.add('active-btn');
+  else btn.classList.remove('active-btn');
+}
+
+function togglePause() {
+  paused = !paused;
+  const btn = document.getElementById('pause-btn');
+  btn.innerHTML = paused
+    ? '<i data-lucide="play" style="width:13px;height:13px;"></i>'
+    : '<i data-lucide="pause" style="width:13px;height:13px;"></i>';
+  lucide.createIcons();
+}
+
+function changeSpeed(dir) {
+  speedIdx = Math.max(0, Math.min(speedLevels.length - 1, speedIdx + dir));
+  simSpeed = speedLevels[speedIdx];
+  const labels = ['0.1×', '0.5×', '1×', '5×', '20×', '100×', '500×'];
+  document.getElementById('sim-speed-val').textContent = labels[speedIdx] + ' reálny čas';
+}
+
+function resetCamera() {
+  cam.x = 0; cam.y = 0; cam.targetZoom = 1; cam.focusBody = null;
+  selectedBody = null;
+  closeInfoPanel();
+}
+
+// ============================================================
+//  ELEMENT SDK
+// ============================================================
+window.elementSdk.init({
+  defaultConfig,
+  onConfigChange: async (config) => {
+    // Update app title
+    const titleEl = document.getElementById('app-title-el');
+    if (titleEl) titleEl.textContent = '☀ ' + (config.app_title || defaultConfig.app_title);
+
+    // Update body descriptions
+    if (bodies.earth) bodies.earth.desc = config.info_earth || defaultConfig.info_earth;
+    if (bodies.moon) bodies.moon.desc = config.info_moon || defaultConfig.info_moon;
+    if (bodies.mars) bodies.mars.desc = config.info_mars || defaultConfig.info_mars;
+
+    // Refresh open panel if needed
+    if (selectedBody) openInfoPanel(selectedBody);
+  },
+  mapToCapabilities: (config) => ({
+    recolorables: [
+      {
+        get: () => '#FDB813',
+        set: () => {}
+      },
+      {
+        get: () => '#2E86AB',
+        set: () => {}
+      }
+    ],
+    borderables: [],
+    fontEditable: undefined,
+    fontSizeable: undefined
+  }),
+  mapToEditPanelValues: (config) => new Map([
+    ['app_title', config.app_title || defaultConfig.app_title],
+    ['info_earth', config.info_earth || defaultConfig.info_earth],
+    ['info_moon', config.info_moon || defaultConfig.info_moon],
+    ['info_mars', config.info_mars || defaultConfig.info_mars]
+  ])
+});
+
+// Init Lucide and default orbit toggle state
+document.addEventListener('DOMContentLoaded', () => {
+  lucide.createIcons();
+  document.getElementById('orbits-btn').classList.add('active-btn');
+});
+lucide.createIcons();
+</script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9de297d151c71948',t:'MTc3MzgxOTY2Ni4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>

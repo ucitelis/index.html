@@ -1,0 +1,553 @@
+<!doctype html>
+<html lang="sk" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Násobilka – Kvíz</title>
+  <script src="/_sdk/element_sdk.js"></script>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.263.0/dist/umd/lucide.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&amp;display=swap" rel="stylesheet">
+  <style>
+    * { font-family: 'Nunito', sans-serif; box-sizing: border-box; }
+    html, body, #app { height: 100%; margin: 0; padding: 0; }
+    #app { overflow: auto; }
+
+    .bg-game {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      min-height: 100%;
+    }
+
+    /* Animated stars */
+    .star {
+      position: fixed;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.7);
+      animation: twinkle 3s infinite alternate;
+      pointer-events: none;
+    }
+    @keyframes twinkle {
+      from { opacity: 0.2; transform: scale(1); }
+      to   { opacity: 1;   transform: scale(1.4); }
+    }
+
+    /* Timer ring */
+    .timer-ring { transform: rotate(-90deg); }
+    .timer-circle {
+      transition: stroke-dashoffset 0.1s linear;
+      stroke-linecap: round;
+    }
+
+    /* Answer buttons */
+    .answer-btn {
+      transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+      cursor: pointer;
+      outline: none;
+    }
+    .answer-btn:hover:not(:disabled) {
+      transform: translateY(-4px) scale(1.04);
+      box-shadow: 0 12px 32px rgba(0,0,0,0.4);
+    }
+    .answer-btn:active:not(:disabled) {
+      transform: scale(0.97);
+    }
+    .answer-btn.correct {
+      background: linear-gradient(135deg, #22c55e, #16a34a) !important;
+      box-shadow: 0 0 24px rgba(34,197,94,0.6) !important;
+    }
+    .answer-btn.wrong {
+      background: linear-gradient(135deg, #ef4444, #b91c1c) !important;
+      box-shadow: 0 0 24px rgba(239,68,68,0.5) !important;
+    }
+    .answer-btn.reveal {
+      background: linear-gradient(135deg, #22c55e, #16a34a) !important;
+    }
+
+    /* Progress bar */
+    .progress-fill {
+      transition: width 0.4s ease;
+      background: linear-gradient(90deg, #a855f7, #6366f1);
+    }
+
+    /* Question pop-in */
+    @keyframes pop-in {
+      from { opacity: 0; transform: scale(0.85) translateY(12px); }
+      to   { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .pop-in { animation: pop-in 0.35s cubic-bezier(.34,1.56,.64,1) both; }
+
+    /* Result reveal */
+    @keyframes slide-up {
+      from { opacity: 0; transform: translateY(40px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .slide-up { animation: slide-up 0.5s ease both; }
+
+    /* Score ring */
+    .score-ring { transform: rotate(-90deg); }
+    .score-circle { transition: stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1); }
+
+    /* Feedback flash */
+    @keyframes flash-correct {
+      0%   { background: rgba(34,197,94,0);  }
+      30%  { background: rgba(34,197,94,0.18); }
+      100% { background: rgba(34,197,94,0);  }
+    }
+    @keyframes flash-wrong {
+      0%   { background: rgba(239,68,68,0);  }
+      30%  { background: rgba(239,68,68,0.18); }
+      100% { background: rgba(239,68,68,0);  }
+    }
+    .flash-correct { animation: flash-correct 0.5s ease; }
+    .flash-wrong   { animation: flash-wrong   0.5s ease; }
+
+    .badge {
+      display: inline-block;
+      padding: 6px 18px;
+      border-radius: 999px;
+      font-weight: 800;
+      font-size: 1.1rem;
+      letter-spacing: 0.02em;
+    }
+  </style>
+  <style>body { box-sizing: border-box; }</style>
+  <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
+ </head>
+ <body class="h-full">
+  <div id="app">
+   <div class="bg-game" id="bg-game"><!-- Stars container -->
+    <div id="stars-container" aria-hidden="true"></div><!-- SCREEN: Start -->
+    <div id="screen-start" class="flex flex-col items-center justify-center min-h-full px-4 py-12">
+     <div class="bg-white/10 backdrop-blur-md border border-white/20 rounded-3xl shadow-2xl p-10 max-w-md w-full text-center">
+      <div class="text-7xl mb-4">
+       🔢
+      </div>
+      <h1 id="start-title" class="text-4xl font-black text-white mb-2 tracking-tight">Násobilka</h1>
+      <p class="text-indigo-200 text-lg mb-8 font-600">20 príkladov · 10 sekúnd na každý</p>
+      <div class="flex justify-center gap-6 mb-8 text-white/80 text-sm font-700">
+       <div class="flex flex-col items-center gap-1"><span class="text-3xl">⚡</span><span>Rýchlo</span>
+       </div>
+       <div class="flex flex-col items-center gap-1"><span class="text-3xl">🎯</span><span>Presne</span>
+       </div>
+       <div class="flex flex-col items-center gap-1"><span class="text-3xl">🏆</span><span>Vyhrať</span>
+       </div>
+      </div><button id="btn-start" class="w-full py-4 px-8 rounded-2xl text-xl font-black text-white shadow-lg
+                 bg-gradient-to-r from-purple-500 to-indigo-500
+                 hover:from-purple-400 hover:to-indigo-400
+                 transition-all duration-200 hover:scale-105 active:scale-95"> Začať hru </button>
+     </div>
+    </div><!-- SCREEN: Game -->
+    <div id="screen-game" class="hidden flex-col items-center justify-center min-h-full px-4 py-8"><!-- Header row -->
+     <div class="w-full max-w-lg flex items-center justify-between mb-5 px-1"><!-- Progress -->
+      <div class="flex flex-col gap-1 flex-1 mr-4">
+       <div class="flex justify-between text-xs text-indigo-200 font-700 mb-1"><span id="progress-text">Príklad 1 / 20</span> <span id="score-text">✔ 0 &nbsp;✘ 0</span>
+       </div>
+       <div class="w-full h-3 bg-white/10 rounded-full overflow-hidden">
+        <div id="progress-bar" class="progress-fill h-full rounded-full" style="width:0%"></div>
+       </div>
+      </div><!-- Timer -->
+      <div class="relative flex items-center justify-center" style="width:56px;height:56px;">
+       <svg width="56" height="56" class="timer-ring" aria-hidden="true"><circle cx="28" cy="28" r="23" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="5" /> <circle id="timer-arc" cx="28" cy="28" r="23" fill="none" stroke="#a855f7" stroke-width="5" stroke-dasharray="144.51" stroke-dashoffset="0" class="timer-circle" />
+       </svg><span id="timer-num" class="absolute text-white font-black text-lg">10</span>
+      </div>
+     </div><!-- Question card -->
+     <div id="question-card" class="pop-in bg-white/10 backdrop-blur-md border border-white/20 rounded-3xl
+               shadow-2xl p-8 max-w-lg w-full text-center mb-6 relative overflow-hidden">
+      <div id="feedback-flash" class="absolute inset-0 rounded-3xl pointer-events-none"></div>
+      <p class="text-indigo-200 font-700 text-sm mb-3 uppercase tracking-widest">Koľko je?</p>
+      <div id="question-text" class="text-6xl font-black text-white mb-2 tracking-tight">
+       3 × 4 = ?
+      </div>
+     </div><!-- Answer buttons -->
+     <div id="answers-grid" class="grid grid-cols-3 gap-4 w-full max-w-lg"><!-- Filled by JS -->
+     </div>
+    </div><!-- SCREEN: Result -->
+    <div id="screen-result" class="hidden flex-col items-center justify-center min-h-full px-4 py-12">
+     <div class="slide-up bg-white/10 backdrop-blur-md border border-white/20 rounded-3xl shadow-2xl p-10 max-w-md w-full text-center">
+      <div id="result-emoji" class="text-7xl mb-3">
+       🏆
+      </div>
+      <h2 id="result-title" class="text-3xl font-black text-white mb-1">Výborne!</h2>
+      <p id="result-sub" class="text-indigo-200 mb-6 font-600">Skvelý výkon!</p><!-- Score ring -->
+      <div class="flex justify-center mb-6">
+       <div class="relative" style="width:140px;height:140px;">
+        <svg width="140" height="140" class="score-ring" aria-label="Výsledok"><circle cx="70" cy="70" r="60" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="10" /> <circle id="score-arc" cx="70" cy="70" r="60" fill="none" stroke="#a855f7" stroke-width="10" stroke-dasharray="376.99" stroke-dashoffset="376.99" class="score-circle" />
+        </svg>
+        <div class="absolute inset-0 flex flex-col items-center justify-center"><span id="result-pct" class="text-4xl font-black text-white">0%</span> <span class="text-indigo-200 text-xs font-700">úspešnosť</span>
+        </div>
+       </div>
+      </div><!-- Stats row -->
+      <div class="flex justify-center gap-6 mb-8">
+       <div class="flex flex-col items-center"><span class="text-3xl font-black text-green-400" id="stat-correct">0</span> <span class="text-xs text-indigo-200 font-700">Správne</span>
+       </div>
+       <div class="w-px bg-white/20"></div>
+       <div class="flex flex-col items-center"><span class="text-3xl font-black text-red-400" id="stat-wrong">0</span> <span class="text-xs text-indigo-200 font-700">Nesprávne</span>
+       </div>
+       <div class="w-px bg-white/20"></div>
+       <div class="flex flex-col items-center"><span class="text-3xl font-black text-yellow-300" id="stat-timeout">0</span> <span class="text-xs text-indigo-200 font-700">Čas vypršal</span>
+       </div>
+      </div><button id="btn-restart" class="w-full py-4 px-8 rounded-2xl text-xl font-black text-white shadow-lg
+                 bg-gradient-to-r from-purple-500 to-indigo-500
+                 hover:from-purple-400 hover:to-indigo-400
+                 transition-all duration-200 hover:scale-105 active:scale-95"> 🔄 Hrať znova </button>
+     </div>
+    </div>
+   </div>
+  </div>
+  <script>
+// ─── Stars ──────────────────────────────────────────────────────────────────
+(function createStars() {
+  const container = document.getElementById('stars-container');
+  for (let i = 0; i < 60; i++) {
+    const s = document.createElement('div');
+    s.className = 'star';
+    const size = Math.random() * 2.5 + 0.5;
+    s.style.cssText = `
+      width:${size}px; height:${size}px;
+      top:${Math.random()*100}%; left:${Math.random()*100}%;
+      animation-delay:${Math.random()*3}s;
+      animation-duration:${2+Math.random()*3}s;
+    `;
+    container.appendChild(s);
+  }
+})();
+
+// ─── Game State ──────────────────────────────────────────────────────────────
+const TOTAL = 20;
+const TIME_LIMIT = 10;
+const CIRCUMFERENCE = 2 * Math.PI * 23; // 144.51
+
+let questions = [];
+let current = 0;
+let correctCount = 0;
+let wrongCount = 0;
+let timeoutCount = 0;
+let timerInterval = null;
+let timeLeft = TIME_LIMIT;
+let answered = false;
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+function randInt(a, b) { return Math.floor(Math.random() * (b - a + 1)) + a; }
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = randInt(0, i);
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function generateQuestions() {
+  const qs = [];
+  // Ensure variety: all pairs 1–10 shuffled, then pick 20
+  const pairs = [];
+  for (let a = 1; a <= 10; a++)
+    for (let b = 1; b <= 10; b++)
+      pairs.push([a, b]);
+  const chosen = shuffle(pairs).slice(0, TOTAL);
+
+  chosen.forEach(([a, b]) => {
+    const correct = a * b;
+    const wrongs = new Set();
+    while (wrongs.size < 2) {
+      let w;
+      const type = randInt(0, 2);
+      if (type === 0) w = correct + randInt(1, 4) * (Math.random() < 0.5 ? 1 : -1);
+      else if (type === 1) w = correct + randInt(5, 15) * (Math.random() < 0.5 ? 1 : -1);
+      else w = randInt(Math.max(1, correct - 10), correct + 10);
+      if (w !== correct && w > 0 && w <= 100) wrongs.add(w);
+    }
+    const options = shuffle([correct, ...[...wrongs]]);
+    qs.push({ a, b, correct, options });
+  });
+  return qs;
+}
+
+// ─── Screens ──────────────────────────────────────────────────────────────────
+function showScreen(id) {
+  ['screen-start', 'screen-game', 'screen-result'].forEach(s => {
+    const el = document.getElementById(s);
+    el.classList.add('hidden');
+    el.classList.remove('flex');
+  });
+  const target = document.getElementById(id);
+  target.classList.remove('hidden');
+  target.classList.add('flex');
+}
+
+// ─── Timer ────────────────────────────────────────────────────────────────────
+function startTimer() {
+  timeLeft = TIME_LIMIT;
+  updateTimerUI();
+  clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    timeLeft -= 0.1;
+    if (timeLeft <= 0) {
+      timeLeft = 0;
+      updateTimerUI();
+      clearInterval(timerInterval);
+      handleTimeout();
+    } else {
+      updateTimerUI();
+    }
+  }, 100);
+}
+
+function updateTimerUI() {
+  const pct = timeLeft / TIME_LIMIT;
+  const offset = CIRCUMFERENCE * (1 - pct);
+  const arc = document.getElementById('timer-arc');
+  arc.setAttribute('stroke-dashoffset', offset.toFixed(2));
+
+  const num = document.getElementById('timer-num');
+  num.textContent = Math.ceil(timeLeft);
+
+  // Color shift: green → yellow → red
+  let color;
+  if (pct > 0.5) color = '#a855f7';
+  else if (pct > 0.25) color = '#f59e0b';
+  else color = '#ef4444';
+  arc.setAttribute('stroke', color);
+  num.style.color = pct <= 0.25 ? '#ef4444' : 'white';
+}
+
+function stopTimer() {
+  clearInterval(timerInterval);
+}
+
+// ─── Question Render ──────────────────────────────────────────────────────────
+function renderQuestion() {
+  answered = false;
+  const q = questions[current];
+
+  // Progress
+  document.getElementById('progress-text').textContent = `Príklad ${current + 1} / ${TOTAL}`;
+  document.getElementById('score-text').innerHTML = `✔ ${correctCount} &nbsp;✘ ${wrongCount}`;
+  document.getElementById('progress-bar').style.width = `${(current / TOTAL) * 100}%`;
+
+  // Question
+  document.getElementById('question-text').textContent = `${q.a} × ${q.b} = ?`;
+
+  // Animate card
+  const card = document.getElementById('question-card');
+  card.classList.remove('pop-in');
+  void card.offsetWidth; // reflow
+  card.classList.add('pop-in');
+
+  // Answers
+  const grid = document.getElementById('answers-grid');
+  grid.innerHTML = '';
+  const colors = [
+    'from-pink-500 to-rose-500',
+    'from-cyan-500 to-blue-500',
+    'from-amber-500 to-orange-500',
+  ];
+  q.options.forEach((opt, i) => {
+    const btn = document.createElement('button');
+    btn.className = `answer-btn bg-gradient-to-br ${colors[i % 3]}
+      text-white text-3xl font-black rounded-2xl py-6 px-2
+      shadow-lg border border-white/10`;
+    btn.textContent = opt;
+    btn.dataset.value = opt;
+    btn.setAttribute('aria-label', `Odpoveď: ${opt}`);
+    btn.addEventListener('click', () => handleAnswer(opt, btn, q));
+    grid.appendChild(btn);
+  });
+
+  lucide.createIcons();
+  startTimer();
+}
+
+// ─── Answer Handling ──────────────────────────────────────────────────────────
+function handleAnswer(chosen, btnEl, q) {
+  if (answered) return;
+  answered = true;
+  stopTimer();
+
+  const isCorrect = chosen === q.correct;
+  if (isCorrect) correctCount++;
+  else wrongCount++;
+
+  // Visual feedback on buttons
+  const allBtns = document.querySelectorAll('.answer-btn');
+  allBtns.forEach(b => {
+    b.disabled = true;
+    const val = parseInt(b.dataset.value);
+    if (val === q.correct) b.classList.add('reveal');
+  });
+  if (!isCorrect) btnEl.classList.add('wrong');
+  else btnEl.classList.add('correct');
+
+  // Flash
+  flashCard(isCorrect);
+
+  setTimeout(nextQuestion, 900);
+}
+
+function handleTimeout() {
+  if (answered) return;
+  answered = true;
+  timeoutCount++;
+
+  const q = questions[current];
+  const allBtns = document.querySelectorAll('.answer-btn');
+  allBtns.forEach(b => {
+    b.disabled = true;
+    const val = parseInt(b.dataset.value);
+    if (val === q.correct) b.classList.add('reveal');
+  });
+
+  flashCard(false);
+  setTimeout(nextQuestion, 900);
+}
+
+function flashCard(correct) {
+  const flash = document.getElementById('feedback-flash');
+  flash.className = 'absolute inset-0 rounded-3xl pointer-events-none';
+  void flash.offsetWidth;
+  flash.className = `absolute inset-0 rounded-3xl pointer-events-none ${correct ? 'flash-correct' : 'flash-wrong'}`;
+}
+
+function nextQuestion() {
+  current++;
+  document.getElementById('score-text').innerHTML = `✔ ${correctCount} &nbsp;✘ ${wrongCount}`;
+  if (current >= TOTAL) {
+    showResult();
+  } else {
+    renderQuestion();
+  }
+}
+
+// ─── Result ───────────────────────────────────────────────────────────────────
+function showResult() {
+  stopTimer();
+  showScreen('screen-result');
+
+  const pct = Math.round((correctCount / TOTAL) * 100);
+  document.getElementById('result-pct').textContent = `${pct}%`;
+  document.getElementById('stat-correct').textContent = correctCount;
+  document.getElementById('stat-wrong').textContent = wrongCount;
+  document.getElementById('stat-timeout').textContent = timeoutCount;
+
+  // Emoji & message
+  let emoji, title, sub;
+  if (pct === 100)      { emoji = '🏆'; title = 'Perfektné!';   sub = 'Všetky príklady správne! Si génius!'; }
+  else if (pct >= 80)   { emoji = '🌟'; title = 'Výborne!';     sub = 'Skvelý výkon, len tak ďalej!'; }
+  else if (pct >= 60)   { emoji = '👍'; title = 'Dobre!';       sub = 'Dobrý výsledok, môžeš sa zlepšiť!'; }
+  else if (pct >= 40)   { emoji = '📚'; title = 'Trénuj viac!'; sub = 'Násobilka si pýta viac precvičovania.'; }
+  else                  { emoji = '💪'; title = 'Nevzdávaj sa!'; sub = 'Cvič každý deň a budeš lepší!'; }
+
+  document.getElementById('result-emoji').textContent = emoji;
+  document.getElementById('result-title').textContent = title;
+  document.getElementById('result-sub').textContent = sub;
+
+  // Animate score ring
+  const circumference = 2 * Math.PI * 60; // 376.99
+  const arc = document.getElementById('score-arc');
+  arc.setAttribute('stroke-dashoffset', circumference);
+  const color = pct >= 80 ? '#22c55e' : pct >= 60 ? '#a855f7' : pct >= 40 ? '#f59e0b' : '#ef4444';
+  arc.setAttribute('stroke', color);
+
+  requestAnimationFrame(() => {
+    setTimeout(() => {
+      const offset = circumference * (1 - pct / 100);
+      arc.setAttribute('stroke-dashoffset', offset.toFixed(2));
+    }, 200);
+  });
+}
+
+// ─── Start / Restart ──────────────────────────────────────────────────────────
+function startGame() {
+  questions = generateQuestions();
+  current = 0;
+  correctCount = 0;
+  wrongCount = 0;
+  timeoutCount = 0;
+  answered = false;
+  showScreen('screen-game');
+  renderQuestion();
+}
+
+document.getElementById('btn-start').addEventListener('click', startGame);
+document.getElementById('btn-restart').addEventListener('click', startGame);
+
+// ─── Element SDK ──────────────────────────────────────────────────────────────
+const defaultConfig = {
+  game_title: 'Násobilka',
+  start_button_text: 'Začať hru',
+  background_color: '#1a1a2e',
+  card_color: '#ffffff',
+  text_color: '#ffffff',
+  accent_color: '#a855f7',
+  font_family: 'Nunito',
+  font_size: 16,
+};
+
+window.elementSdk.init({
+  defaultConfig,
+  onConfigChange: async (config) => {
+    const title = config.game_title || defaultConfig.game_title;
+    const btnText = config.start_button_text || defaultConfig.start_button_text;
+    const font = config.font_family || defaultConfig.font_family;
+    const size = config.font_size || defaultConfig.font_size;
+    const bg = config.background_color || defaultConfig.background_color;
+    const accent = config.accent_color || defaultConfig.accent_color;
+    const textColor = config.text_color || defaultConfig.text_color;
+
+    document.getElementById('start-title').textContent = title;
+    document.getElementById('btn-start').textContent = btnText;
+    document.getElementById('btn-restart').textContent = '🔄 Hrať znova';
+
+    document.body.style.fontFamily = `'${font}', sans-serif`;
+
+    // Apply font size scaling
+    document.getElementById('start-title').style.fontSize = `${size * 2.2}px`;
+
+    // Apply accent color to timer arc
+    document.getElementById('timer-arc').setAttribute('stroke', accent);
+    document.getElementById('score-arc').setAttribute('stroke', accent);
+
+    // Apply text color
+    document.querySelectorAll('.text-white').forEach(el => {
+      el.style.color = textColor;
+    });
+  },
+  mapToCapabilities: (config) => ({
+    recolorables: [
+      {
+        get: () => config.background_color || defaultConfig.background_color,
+        set: (v) => { config.background_color = v; window.elementSdk.setConfig({ background_color: v }); }
+      },
+      {
+        get: () => config.card_color || defaultConfig.card_color,
+        set: (v) => { config.card_color = v; window.elementSdk.setConfig({ card_color: v }); }
+      },
+      {
+        get: () => config.text_color || defaultConfig.text_color,
+        set: (v) => { config.text_color = v; window.elementSdk.setConfig({ text_color: v }); }
+      },
+      {
+        get: () => config.accent_color || defaultConfig.accent_color,
+        set: (v) => { config.accent_color = v; window.elementSdk.setConfig({ accent_color: v }); }
+      },
+    ],
+    borderables: [],
+    fontEditable: {
+      get: () => config.font_family || defaultConfig.font_family,
+      set: (v) => { config.font_family = v; window.elementSdk.setConfig({ font_family: v }); }
+    },
+    fontSizeable: {
+      get: () => config.font_size || defaultConfig.font_size,
+      set: (v) => { config.font_size = v; window.elementSdk.setConfig({ font_size: v }); }
+    },
+  }),
+  mapToEditPanelValues: (config) => new Map([
+    ['game_title', config.game_title || defaultConfig.game_title],
+    ['start_button_text', config.start_button_text || defaultConfig.start_button_text],
+  ]),
+});
+
+lucide.createIcons();
+</script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9e24f44713871948',t:'MTc3NDUxNTUxMy4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
